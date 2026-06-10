@@ -11,7 +11,7 @@ app = FastAPI(title="Serviço de Produtos")
 PORT = int(os.getenv("PORT", 5002))
 PEER_URL = os.getenv("PEER_URL", f"http://127.0.0.1:{5012 if PORT == 5002 else 5002}")
 
-SECRET_KEY = "chave_jwt"
+SECRET_KEY = os.getenv("JWT_SECRET", "chave_jwt")
 ALGORITHM = "HS256"
 DB_FILE = f"products_db_{PORT}.json"
 
@@ -54,14 +54,14 @@ def get_product(product_id: str):
 @app.post("/products")
 def create_product(product: ProductCreate, xtoken: Optional[str] = Header(None)):
     if not xtoken or not xtoken.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token ausente ou inválido")
+        raise HTTPException(status_code=401, detail="Token ausente ou formato inválido")
     
     token = xtoken.split(" ")[1]
     
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("role") != "admin":
-            raise HTTPException(status_code=403, detail="Acesso negado: Requer privilégios de admin")
+            raise HTTPException(status_code=403, detail="Acesso negado: Somente admins podem criar produtos")
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Token inválido ou expirado")
     
@@ -75,7 +75,7 @@ def create_product(product: ProductCreate, xtoken: Optional[str] = Header(None))
         if response.status_code != 200:
             raise Exception()
     except Exception:
-        raise HTTPException(status_code=503, detail="Falha na replicação. Operação abortada para manter consistência.")
+        raise HTTPException(status_code=503, detail="Falha na replicação. Operação abortada.")
 
     db[product_id] = product_data
     write_db(db)
@@ -86,5 +86,5 @@ def create_product(product: ProductCreate, xtoken: Optional[str] = Header(None))
 def sync_product(sync: ProductSync):
     db = read_db()
     db[sync.id] = sync.data
-    write_db(data=db)
+    write_db(db)
     return {"status": "synced"}
