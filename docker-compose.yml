@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  gateway:
+    build: ./gateway
+    ports:
+      - "5000:5000"
+    command: uvicorn main:app --host 0.0.0.0 --port 5000 --ssl-keyfile key.pem --ssl-certfile cert.pem
+    restart: always
+    depends_on:
+      - users
+      - products-replica-a
+      - products-replica-b
+      - orders
+
+  users:
+    build: ./users
+    ports:
+      - "5001:5001"
+    environment:
+      - JWT_SECRET=chave_super_secreta_e_commerce
+    command: uvicorn main:app --host 0.0.0.0 --port 5001 --ssl-keyfile key.pem --ssl-certfile cert.pem
+    restart: always
+
+  products-replica-a:
+    build: ./products
+    ports:
+      - "5002:5002"
+    environment:
+      - PORT=5002
+      - PEER_URL=https://products-replica-b:5012 
+      - JWT_SECRET=chave_super_secreta_e_commerce
+    command: uvicorn main:app --host 0.0.0.0 --port 5002 --ssl-keyfile key.pem --ssl-certfile cert.pem
+    restart: always
+
+  products-replica-b:
+    build: ./products
+    ports:
+      - "5012:5012"
+    environment:
+      - PORT=5012
+      - PEER_URL=https://products-replica-a:5002
+      - JWT_SECRET=chave_super_secreta_e_commerce
+    command: uvicorn main:app --host 0.0.0.0 --port 5012 --ssl-keyfile key.pem --ssl-certfile cert.pem
+    restart: always
+
+  orders:
+    build: ./orders
+    ports:
+      - "5003:5003"
+    environment:
+      - USERS_SERVICE_URL=https://users:5001
+      - PRODUCTS_SERVICE_URL=https://products-replica-a:5002
+      - JWT_SECRET=chave_super_secreta_e_commerce
+    command: uvicorn main:app --host 0.0.0.0 --port 5003 --ssl-keyfile key.pem --ssl-certfile cert.pem
+    restart: always
