@@ -8,14 +8,14 @@ from pydantic import BaseModel
 from typing import Optional
 
 app = FastAPI(title="Serviço de Usuários")
-
-SECRET_KEY = "chave_jwt"
+SECRET_KEY = os.getenv("JWT_SECRET", "chave_jwt")
 ALGORITHM = "HS256"
 DB_FILE = "users_db.json"
 
 if not os.path.exists(DB_FILE):
     with open(DB_FILE, "w") as f:
         json.dump({}, f)
+
 class UserRegister(BaseModel):
     name: str
     email: str
@@ -41,7 +41,6 @@ def get_user_by_email(email: str):
             user_data["id"] = user_id
             return user_data
     return None
-
 
 @app.get("/health")
 def health_check():
@@ -88,17 +87,17 @@ def login(user: UserLogin):
     return {"token": token}
 
 @app.get("/users/{user_id}")
-def get_user(user_id: str, authorization: Optional[str] = Header(None)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token ausente ou inválido")
+def get_user(user_id: str, xtoken: Optional[str] = Header(None)):
+    if not xtoken or not xtoken.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token ausente ou formato inválido")
     
-    token = authorization.split(" ")[1]
+    token = xtoken.split(" ")[1]
     
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expirado")
-    except jwt.InvalidTokenError:
+    except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Token inválido")
     
     db = read_db()
