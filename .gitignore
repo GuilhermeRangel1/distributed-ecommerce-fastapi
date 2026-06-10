@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.env
+*_db.json
+users_db.json
+orders_db.json
+products_db_*.json
+*.pem
+.DS_Store
+Thumbs.db
